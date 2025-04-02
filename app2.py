@@ -75,7 +75,7 @@ def fetch_jobs():
         "num_pages": "1"
     }
     headers = {
-        "X-RapidAPI-Key": "YOUR_RAPID_API_KEY",  # Replace with your API key
+        "X-RapidAPI-Key": "f677772889msh1aa0d674284462ap1cf2a7jsn2f2557275e02",  # Replace with your API key
         "X-RapidAPI-Host": "jsearch.p.rapidapi.com"
     }
     response = requests.get(url, headers=headers, params=querystring)
