@@ -5,7 +5,7 @@ import re
 import spacy
 import requests
 import docx2txt
-from google.colab import files
+
 
 # Upload a resume (PDF or DOCX)
 uploaded = files.upload()
