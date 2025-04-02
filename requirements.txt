@@ -1,4 +1,6 @@
+streamlit
+docx2txt
+pymupdf
 spacy
 requests
-docx2txt
-PyMuPDF
+
