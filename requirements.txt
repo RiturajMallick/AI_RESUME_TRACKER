@@ -1,5 +1,6 @@
+
 streamlit
-spacy
-docx2txt
-requests
 PyPDF2
+docx2txt
+spacy
+requests
