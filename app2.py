@@ -1,90 +1,84 @@
-
 import streamlit as st
-import requests
 import docx2txt
-import pdfplumber
-from transformers import pipeline
+import fitz  # PyMuPDF for PDF processing
+import requests
+from bs4 import BeautifulSoup
 
-# Load AI model for resume analysis (Using Free AI)
-nlp_pipeline = pipeline("text-classification", model="facebook/bart-large-mnli")
-
-# JSearch API Key (Make sure to replace with your actual key)
+# JobSearch API Key (Replace with your actual API key)
 JSEARCH_API_KEY = "f677772889msh1aa0d674284462ap1cf2a7jsn2f2557275e02"
 
-# Function to extract text from PDF
-def extract_text_from_pdf(pdf_path):
-    with pdfplumber.open(pdf_path) as pdf:
-        text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
-    return text
+# Function to extract text from resume
+def extract_text_from_resume(file):
+    ext = file.name.split(".")[-1]
+    
+    if ext == "pdf":
+        pdf_document = fitz.open(stream=file.read(), filetype="pdf")
+        text = ""
+        for page in pdf_document:
+            text += page.get_text()
+        return text
 
-# Function to extract text from DOCX
-def extract_text_from_docx(docx_path):
-    return docx2txt.process(docx_path)
+    elif ext == "docx":
+        return docx2txt.process(file)
+    
+    else:
+        return "Unsupported file type"
 
-# Function to calculate ATS Score (Simulated AI)
-def get_ats_score(resume_text):
-    result = nlp_pipeline(resume_text[:512])  # Hugging Face model limitation
-    return round(result[0]['score'] * 100, 2)  # Convert to 100 scale
+# Function to calculate ATS Score (Simple Analysis)
+def calculate_ats_score(resume_text):
+    keywords = ["Python", "Machine Learning", "Data Science", "AI", "Java", "React", "SQL"]
+    score = sum(1 for word in keywords if word.lower() in resume_text.lower())
+    return (score / len(keywords)) * 100  # Convert to percentage
 
-# Function to suggest resume improvements
-def improve_resume(resume_text):
-    return (
-        "🔹 Optimize keywords from the job description.\n"
-        "🔹 Keep your formatting clean and ATS-friendly.\n"
-        "🔹 Focus on achievements rather than just job duties."
-    )
-
-# Function to get job listings from JSearch API
-def get_job_listings(query, location):
+# Function to find jobs using JobSearch API
+def find_jobs(resume_text):
     url = "https://jsearch.p.rapidapi.com/search"
-    headers = {"X-RapidAPI-Key": JSEARCH_API_KEY, "X-RapidAPI-Host": "jsearch.p.rapidapi.com"}
-    params = {"query": query, "location": location, "num_pages": 1}
+    headers = {
+        "X-RapidAPI-Key": JSEARCH_API_KEY,
+        "X-RapidAPI-Host": "jsearch.p.rapidapi.com"
+    }
+    query = {"query": "AI Developer", "num_pages": 1}
 
-    response = requests.get(url, headers=headers, params=params)
-    jobs = response.json().get("data", [])
-    return jobs
+    response = requests.get(url, headers=headers, params=query)
+    
+    if response.status_code == 200:
+        jobs = response.json().get("data", [])
+        return jobs
+    else:
+        return []
 
 # Streamlit UI
-st.title("🚀 AI Resume Tracker (With JSearch API)")
-st.write("Upload your resume, get an ATS score, improvement suggestions, and find jobs!")
+st.title("AI Resume Tracker 🚀")
+st.write("Upload your resume and get ATS insights + find jobs instantly!")
 
-# File Upload
-uploaded_file = st.file_uploader("Upload your Resume (PDF/DOCX)", type=["pdf", "docx"])
+uploaded_file = st.file_uploader("Upload Resume (PDF or DOCX)", type=["pdf", "docx"])
 
 if uploaded_file:
-    file_path = f"./{uploaded_file.name}"
-    with open(file_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
+    resume_text = extract_text_from_resume(uploaded_file)
+    ats_score = calculate_ats_score(resume_text)
+    jobs = find_jobs(resume_text)
 
-    # Extract text
-    if uploaded_file.name.endswith(".pdf"):
-        resume_text = extract_text_from_pdf(file_path)
+    st.subheader("📊 ATS Score")
+    st.write(f"Your ATS Score: **{ats_score:.2f}%**")
+
+    st.subheader("📋 Resume Text Extracted")
+    st.write(resume_text[:500] + "...")  # Show first 500 characters
+
+    st.subheader("💼 Job Listings")
+    if jobs:
+        for job in jobs[:5]:  # Show top 5 jobs
+            st.write(f"**{job['job_title']}** - {job['employer_name']}")
+            st.write(f"📍 Location: {job['job_city']}, {job['job_state']}")
+            st.write(f"🔗 [Apply Here]({job['job_apply_link']})")
+            st.write("---")
     else:
-        resume_text = extract_text_from_docx(file_path)
+        st.write("No jobs found for your resume keywords. Try updating your resume.")
 
-    # ATS Score Calculation
-    ats_score = get_ats_score(resume_text)
-    st.subheader("🎯 ATS Score")
-    st.write(f"Your resume ATS Score: **{ats_score}** / 100")
+st.write("Powered by AI & JobSearch API 🚀")
 
-    # Resume Improvement Suggestions
-    st.subheader("🔹 AI Improvement Suggestions")
-    improvement = improve_resume(resume_text)
-    st.write(improvement)
 
-    # Job Search Section
-    st.subheader("🔍 Find Jobs Based on Resume Skills")
-    job_query = st.text_input("Enter Job Role", "Software Engineer")
-    job_location = st.text_input("Enter Location", "Remote")
 
-    if st.button("Find Jobs"):
-        jobs = get_job_listings(job_query, job_location)
-        if jobs:
-            for job in jobs:
-                st.write(f"**{job['job_title']}**")
-                st.write(f"📍 {job['job_city']}, {job['job_country']}")
-                st.write(f"🔗 [Apply Here]({job['job_apply_link']})")
-                st.write("---")
-        else:
-            st.warning("No jobs found! Try another search.")
 
+
+
+  
