@@ -5,9 +5,14 @@ import fitz  # PyMuPDF
 import spacy
 import re
 import requests
+import subprocess
 
-# Load spaCy model
-nlp = spacy.load("en_core_web_sm")
+# Load spaCy model (auto-install if missing)
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
+    nlp = spacy.load("en_core_web_sm")
 
 # Streamlit App UI
 st.title("📄 AI Resume Tracker")
@@ -124,4 +129,3 @@ if uploaded_file:
                 st.write(f"📧 Recruiter Email: {job['recruiter_email']}\n")
         else:
             st.error("❌ No job listings found.")
-
