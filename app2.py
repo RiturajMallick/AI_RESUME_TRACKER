@@ -1,76 +1,54 @@
 import streamlit as st
-import spacy
-import docx2txt
-import requests
 import PyPDF2
-import re
+import docx2txt
+import spacy
+import requests
 
-# Load spaCy NLP model
-try:
-    nlp = spacy.load("en_core_web_sm")
-except:
-    import os
-    os.system("python -m spacy download en_core_web_sm")
-    nlp = spacy.load("en_core_web_sm")
+# Load spaCy Model
+nlp = spacy.load("en_core_web_sm")
 
-# Streamlit UI
-st.title("📄 AI Resume Tracker")
-st.write("Upload your resume and get ATS insights, job recommendations, and improvement suggestions.")
+st.title("📝 AI Resume Tracker")
 
-# Upload resume
+# Upload Resume
 uploaded_file = st.file_uploader("Upload your resume (PDF or DOCX)", type=["pdf", "docx"])
 
-if uploaded_file is not None:
-    st.success(f"✅ File uploaded: {uploaded_file.name}")
+if uploaded_file:
+    def extract_text(uploaded_file):
+        if uploaded_file.name.endswith(".pdf"):
+            pdf_reader = PyPDF2.PdfReader(uploaded_file)
+            text = "".join([page.extract_text() for page in pdf_reader.pages])
+            return text
+        elif uploaded_file.name.endswith(".docx"):
+            return docx2txt.process(uploaded_file)
+        return ""
 
-    # Extract text from resume
-    if uploaded_file.name.endswith(".docx"):
-        resume_text = docx2txt.process(uploaded_file)
-    elif uploaded_file.name.endswith(".pdf"):
-        pdf_reader = PyPDF2.PdfReader(uploaded_file)
-        resume_text = "\n".join([pdf_reader.pages[i].extract_text() for i in range(len(pdf_reader.pages))])
-    else:
-        st.error("❌ Unsupported file format. Please upload a PDF or DOCX.")
+    resume_text = extract_text(uploaded_file)
 
-    # ATS Analysis
-    def analyze_ats_friendly(text):
+    def analyze_ats_score(text):
         score = 0
         feedback = []
-
         sections = ["experience", "education", "skills", "certifications", "projects"]
+        
         for section in sections:
-            if re.search(section, text, re.IGNORECASE):
+            if section in text.lower():
                 score += 10
             else:
                 feedback.append(f"❌ Missing section: {section.capitalize()}")
 
-        if not re.search(r'\b\d{10}\b', text) or not re.search(r'[\w.-]+@[\w.-]+', text):
-            feedback.append("❌ Missing or incorrect contact information")
+        if not any(keyword in text.lower() for keyword in ["email", "@", "phone"]):
+            feedback.append("❌ Missing contact details")
         else:
             score += 10
 
-        keywords = ["Python", "Machine Learning", "AI", "Data Science", "React", "SQL", "AWS"]
+        keywords = ["Python", "Machine Learning", "AI", "Data Science"]
         keyword_count = sum([text.lower().count(kw.lower()) for kw in keywords])
         score += min(keyword_count * 5, 20)
-        if keyword_count == 0:
-            feedback.append("❌ No relevant keywords found")
 
         return score, feedback
 
-    ats_score, feedback = analyze_ats_friendly(resume_text)
-
-    st.subheader("✅ ATS Score")
-    st.write(f"Your resume ATS score is: **{ats_score}/100**")
-
-    st.subheader("💡 Improvements")
-    for fb in feedback:
-        st.write(fb)
-
-    # Skill Extraction
-    def extract_skills(resume_text):
-        doc = nlp(resume_text)
+    def extract_skills(text):
+        doc = nlp(text)
         skills = set()
-
         job_keywords = ["Python", "Machine Learning", "Data Science", "React", "SQL", "AWS",
                         "Java", "JavaScript", "Cloud", "Kubernetes", "TensorFlow", "AI", "NLP"]
 
@@ -80,30 +58,37 @@ if uploaded_file is not None:
 
         return list(skills)
 
-    extracted_skills = extract_skills(resume_text)
-    st.subheader("🔍 Extracted Skills")
-    st.write(", ".join(extracted_skills) if extracted_skills else "No skills detected.")
+    def get_job_listings():
+        url = "https://jsearch.p.rapidapi.com/search"
+        headers = {
+            "X-RapidAPI-Key": "f677772889msh1aa0d674284462ap1cf2a7jsn2f2557275e02",
+            "X-RapidAPI-Host": "jsearch.p.rapidapi.com"
+        }
+        querystring = {"query": "Software Engineer in India", "page": "1", "num_pages": "1"}
+        response = requests.get(url, headers=headers, params=querystring)
+        return response.json().get("data", [])
 
-    # Job Search using RapidAPI
-    st.subheader("🚀 Job Recommendations")
+    # Analyze ATS Score
+    ats_score, feedback = analyze_ats_score(resume_text)
+    skills = extract_skills(resume_text)
+    job_listings = get_job_listings()
 
-    url = "https://jsearch.p.rapidapi.com/search"
-    querystring = {"query": "Software Engineer in India", "page": "1", "num_pages": "1"}
-    headers = {
-        "X-RapidAPI-Key": "YOUR_RAPIDAPI_KEY",  # Replace with your API key
-        "X-RapidAPI-Host": "jsearch.p.rapidapi.com"
-    }
+    # Display results
+    st.subheader("✅ ATS Score:")
+    st.write(f"Your ATS Score: {ats_score}/100")
 
-    response = requests.get(url, headers=headers, params=querystring)
-    data = response.json()
+    st.subheader("💡 Feedback & Improvements:")
+    for fb in feedback:
+        st.write(fb)
 
-    if "data" in data:
-        job_listings = data["data"]
+    st.subheader("🔍 Extracted Skills:")
+    st.write(", ".join(skills))
 
-        for job in job_listings[:5]:  
-            st.write(f"🔹 **{job['job_title']}** at **{job['employer_name']}**")
-            st.write(f"📍 {job['job_city']}, {job['job_country']}")
-            st.write(f"🔗 [Apply Here]({job['job_apply_link']})")
-            st.write("---")
-    else:
-        st.write("❌ No job listings found. Try a different query.")
+    st.subheader("🔎 Job Listings:")
+    for job in job_listings[:5]:
+        st.write(f"🔹 **{job['job_title']}**")
+        st.write(f"🏢 {job['employer_name']}")
+        st.write(f"📍 {job['job_city']}, {job['job_country']}")
+        st.write(f"🔗 [Apply Here]({job['job_apply_link']})")
+        st.write("---")
+
