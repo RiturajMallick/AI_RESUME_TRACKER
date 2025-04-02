@@ -1,0 +1,7 @@
+with open("requirements.txt", "w") as f:
+    f.write("""streamlit
+docx2txt
+pymupdf
+requests
+beautifulsoup4
+""")
