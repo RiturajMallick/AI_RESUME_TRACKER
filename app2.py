@@ -1,4 +1,4 @@
-!pip install pymupdf docx2txt
+
 import streamlit as st
 import requests
 import docx2txt
