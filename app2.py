@@ -1,3 +1,7 @@
+#The AI Resume Tracker is a powerful tool that helps job seekers optimize their resumes for Applicant Tracking Systems (ATS) 
+#and find job opportunities based on their skills. It analyzes resumes, extracts skills, provides ATS score feedback, and searches
+#for relevant job listings.
+    
 import os
 import spacy
 import docx2txt
